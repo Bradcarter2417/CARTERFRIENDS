@@ -518,8 +518,22 @@ const languageSelect = document.getElementById('languageSelect');
 const themeToggle = document.getElementById('themeToggle');
 const colorButtons = document.querySelectorAll('.swatch');
 const root = document.documentElement;
+const authModal = document.getElementById('authModal');
+const authTitle = document.getElementById('authTitle');
+const authSubtitle = document.getElementById('authSubtitle');
+const authSubmit = document.getElementById('authSubmit');
+const authForm = document.getElementById('authForm');
+const authClose = document.getElementById('authClose');
+const authModeToggle = document.getElementById('authModeToggle');
+const authName = document.getElementById('authName');
+const loginButtons = document.querySelectorAll('.login-btn');
+
+let currentLang = 'en';
+let authMode = 'login';
+let currentUser = null;
 
 function setLanguage(lang) {
+  currentLang = lang;
   const dict = translations[lang] || translations.en;
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     const key = el.getAttribute('data-i18n');
@@ -536,6 +550,67 @@ function setTheme(mode) {
   themeToggle.textContent = mode === 'light' ? '🌙' : '☀';
 }
 
+function openAuthModal(mode = 'login') {
+  authMode = mode;
+  authModal.hidden = false;
+  authName.style.display = mode === 'signup' ? 'block' : 'none';
+  authTitle.textContent = mode === 'signup' ? 'Create your account' : 'Welcome back';
+  authSubtitle.textContent = mode === 'signup' ? 'Join CarterFriends today' : 'Sign in to continue';
+  authSubmit.textContent = mode === 'signup' ? 'Create account' : 'Login';
+  authModeToggle.textContent = mode === 'signup' ? 'Already have an account?' : 'Create account';
+}
+
+function closeAuthModal() {
+  authModal.hidden = true;
+  authForm.reset();
+}
+
+async function saveUser(user) {
+  currentUser = user;
+  updateAuthButton();
+}
+
+async function loadUser() {
+  try {
+    const response = await fetch('/api/auth/me');
+    if (response.ok) {
+      const data = await response.json();
+      currentUser = data.user;
+      updateAuthButton();
+    } else {
+      currentUser = null;
+      updateAuthButton();
+    }
+  } catch (e) {
+    currentUser = null;
+    updateAuthButton();
+  }
+}
+
+function updateAuthButton() {
+  loginButtons.forEach((btn) => {
+    btn.textContent = currentUser ? currentUser.name.split(' ')[0] : translations[currentLang].login;
+  });
+}
+
+async function logoutUser() {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch (e) {
+    // ignore logout API failure and continue locally
+  }
+  currentUser = null;
+  updateAuthButton();
+}
+
+function requireLogin(action = 'this action') {
+  if (!currentUser) {
+    openAuthModal('login');
+    return false;
+  }
+  return true;
+}
+
 function setAccent(color) {
   root.style.setProperty('--primary', color);
   root.style.setProperty('--primary-2', color === '#8b5cf6' ? '#c084fc' : color);
@@ -550,6 +625,70 @@ themeToggle.addEventListener('click', () => {
   setTheme(isLight ? 'dark' : 'light');
 });
 
+authClose.addEventListener('click', closeAuthModal);
+authModal.addEventListener('click', (e) => {
+  if (e.target === authModal) closeAuthModal();
+});
+authModeToggle.addEventListener('click', () => {
+  openAuthModal(authMode === 'login' ? 'signup' : 'login');
+});
+
+authForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = authName.value.trim();
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value.trim();
+
+  if (!email || !password) return;
+
+  const endpoint = authMode === 'signup' ? '/api/auth/register' : '/api/auth/login';
+  const payload = authMode === 'signup'
+    ? { name, email, password }
+    : { email, password };
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(data.message || 'Authentication failed');
+      return;
+    }
+
+    await saveUser(data.user);
+    closeAuthModal();
+  } catch (error) {
+    alert('Unable to reach the server right now.');
+  }
+});
+
+loginButtons.forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    if (currentUser) {
+      await logoutUser();
+    } else {
+      openAuthModal('login');
+    }
+  });
+});
+
+document.querySelector('.primary-btn').addEventListener('click', () => {
+  if (!currentUser) {
+    openAuthModal('signup');
+  }
+});
+
+document.querySelector('.composer-input').addEventListener('click', () => {
+  if (requireLogin()) {
+    document.querySelector('.composer-input').textContent = `Posting as ${currentUser.name}...`;
+  }
+});
+
 colorButtons.forEach((btn) => {
   btn.addEventListener('click', () => {
     const color = getComputedStyle(btn).backgroundColor;
@@ -561,6 +700,7 @@ colorButtons.forEach((btn) => {
 
 document.querySelectorAll('.like-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
+    if (!requireLogin()) return;
     btn.classList.toggle('liked');
     const count = btn.querySelector('span');
     if (btn.classList.contains('liked')) {
@@ -573,13 +713,22 @@ document.querySelectorAll('.like-btn').forEach((btn) => {
 
 document.querySelectorAll('.streak-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
+    if (!requireLogin()) return;
     const count = btn.querySelector('span');
     count.textContent = count.textContent === '✨' ? '🔥' : '✨';
   });
 });
 
+document.querySelectorAll('.follow-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (!requireLogin()) return;
+    btn.textContent = btn.textContent === 'Follow' ? 'Following' : 'Follow';
+  });
+});
+
 document.querySelectorAll('.filter-btn').forEach((btn) => {
   btn.addEventListener('click', () => {
+    if (!requireLogin()) return;
     document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     const category = btn.dataset.filter;
@@ -592,3 +741,5 @@ document.querySelectorAll('.filter-btn').forEach((btn) => {
 
 setLanguage('en');
 setTheme('dark');
+loadUser();
+updateAuthButton();

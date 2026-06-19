@@ -1,0 +1,16 @@
+{
+  "name": "carterfriends",
+  "version": "1.0.0",
+  "description": "CarterFriends frontend with Node/Express backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express": "^4.21.2",
+    "express-session": "^1.1.0",
+    "sqlite3": "^6.0.1"
+  }
+}

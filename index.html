@@ -222,6 +222,23 @@
           </div>
         </section>
       </main>
+
+      <div class="auth-modal" id="authModal" hidden>
+        <div class="auth-card">
+          <button class="auth-close" id="authClose" aria-label="Close">×</button>
+          <h3 id="authTitle">Welcome back</h3>
+          <p id="authSubtitle">Sign in to continue</p>
+          <form id="authForm">
+            <input type="text" id="authName" placeholder="Full name" />
+            <input type="email" id="authEmail" placeholder="Email" required />
+            <input type="password" id="authPassword" placeholder="Password" required />
+            <button type="submit" class="primary-btn" id="authSubmit">Login</button>
+          </form>
+          <div class="auth-switch">
+            <button id="authModeToggle">Create account</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="script.js"></script>
